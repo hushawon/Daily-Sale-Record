@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Sales Profit Calculator</title>
+    <!-- Load Tailwind CSS CDN for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Use Inter font -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7fafc;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8 min-h-screen flex flex-col items-center justify-start">
+
+    <!-- Message Box Container -->
+    <div id="messageBoxContainer"></div>
+
+    <div class="w-full max-w-4xl bg-white shadow-xl rounded-xl p-6 md:p-10 border border-gray-100 mb-8">
+
+        <!-- Header -->
+        <h1 class="text-3xl font-extrabold text-gray-900 mb-2">Daily Profit & Stock Tracker</h1>
+        <p class="text-gray-600 mb-4">Enter your daily sales and inventory figures to instantly calculate revenue, cost, and remaining stock.</p>
+        <p id="authStatus" class="text-sm text-gray-500 mb-6"></p>
+
+        <!-- Input Section (Left side in desktop view) -->
+        <div class="grid md:grid-cols-2 gap-6">
+
+            <!-- Input Fields (Left Column: Sale Details) -->
+            <div class="space-y-4">
+                <h2 class="text-xl font-semibold text-gray-800 border-b pb-2 mb-4">Input Data</h2>
+
+                <!-- 1. Customer Name (Optional) -->
+                <div>
+                    <label for="customerName" class="block text-sm font-medium text-gray-700">Customer Name (Optional)</label>
+                    <input type="text" id="customerName" placeholder="e.g., Jane Doe"
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border">
+                </div>
+
+                <!-- 2. Quantity Sold -->
+                <div>
+                    <label for="quantitySold" class="block text-sm font-medium text-gray-700">Quantity Sold</label>
+                    <input type="number" id="quantitySold" min="0" required
+                           oninput="calculateMetrics()"
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border text-xl font-bold text-indigo-600">
+                </div>
+
+                <!-- 3. Payment (BDT) -->
+                <div>
+                    <label for="sellingPrice" class="block text-sm font-medium text-gray-700">Payment (BDT)</label>
+                    <input type="number" id="sellingPrice" min="0" step="0.01" required
+                           oninput="calculateMetrics()"
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border text-lg font-mono">
+                </div>
+
+                <!-- 4. Product Selector -->
+                <div>
+                    <label for="productSelector" class="block text-sm font-medium text-gray-700">Product</label>
+                    <select id="productSelector" onchange="calculateMetrics()"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border text-lg font-mono appearance-none bg-white">
+                        <option value="RED">RED</option>
+                        <option value="ORANGE">ORANGE</option>
+                    </select>
+                </div>
+
+                <!-- 5. Fixed Cost Display (Shows the dynamic cost used for calculation) -->
+                <div class="p-3 bg-gray-100 rounded-md border border-gray-200">
+                    <p class="text-sm font-medium text-gray-700">Fixed Cost per Unit (Live)</p>
+                    <p id="calculatedCostPerUnitDisplay" class="text-lg font-bold text-gray-800">৳0.00</p>
+                </div>
+
+                <!-- Record Sale Button -->
+                <button onclick="recordSale()" 
+                        class="w-full mt-6 py-3 px-4 bg-green-600 text-white font-bold rounded-lg shadow-lg hover:bg-green-700 transition duration-150 transform hover:scale-[1.01]">
+                    Record Sale & Update Stock
+                </button>
+            </div>
+
+            <!-- Results Section (Right Column: Stock & Financial Outputs) -->
+            <div class="space-y-4 bg-indigo-50 p-6 rounded-lg shadow-inner md:mt-0 mt-6 h-full flex flex-col justify-center">
+                <h2 class="text-xl font-semibold text-indigo-800 border-b border-indigo-200 pb-2 mb-4">Daily Results</h2>
+
+                <!-- Collapsible Stock & Cost Input Section -->
+                <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200 space-y-3">
+                    <!-- Toggle Button -->
+                    <div class="flex justify-between items-center cursor-pointer pb-1" onclick="toggleStockInputs()">
+                        <h3 class="text-lg font-bold text-gray-800">Edit Stock & Costs</h3>
+                        <!-- Icon uses rotation classes for visual feedback -->
+                        <span id="stockToggleIcon" class="text-gray-500 transform transition duration-200 rotate-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </span>
+                    </div>
+                    
+                    <!-- Collapsible Content - Hidden by default -->
+                    <div id="stockInputContent" class="hidden space-y-4 pt-3 border-t border-gray-200">
+                        <h4 class="text-base font-semibold text-gray-700">Stock Levels</h4>
+                        <!-- Stock for RED -->
+                        <div>
+                            <label for="redStock" class="block text-sm font-medium text-gray-700">RED Stock Available</label>
+                            <input type="number" id="redStock" value="0" min="0" required
+                                   oninput="calculateMetrics()"
+                                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border text-base font-mono">
+                        </div>
+
+                        <!-- Stock for ORANGE -->
+                        <div>
+                            <label for="orangeStock" class="block text-sm font-medium text-gray-700">ORANGE Stock Available</label>
+                            <input type="number" id="orangeStock" value="0" min="0" required
+                                   oninput="calculateMetrics()"
+                                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border text-base font-mono">
+                        </div>
+                        
+                        <h4 class="text-base font-semibold text-gray-700 pt-2 border-t border-gray-100">Unit Costs (BDT)</h4>
+                        <!-- Cost for RED (NEW INPUT) -->
+                        <div>
+                            <label for="redCost" class="block text-sm font-medium text-gray-700">Cost for RED (BDT)</label>
+                            <input type="number" id="redCost" value="260.00" min="0" step="0.01" required
+                                   oninput="calculateMetrics()"
+                                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border text-base font-mono">
+                        </div>
+
+                        <!-- Cost for ORANGE (NEW INPUT) -->
+                        <div>
+                            <label for="orangeCost" class="block text-sm font-medium text-gray-700">Cost for ORANGE (BDT)</label>
+                            <input type="number" id="orangeCost" value="300.00" min="0" step="0.01" required
+                                   oninput="calculateMetrics()"
+                                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border text-base font-mono">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Remaining Stock Cards (Updated to show RED and ORANGE separately) -->
+                <div class="grid grid-cols-2 gap-3">
+                    <!-- RED Remaining Stock Card (Neutralized starting color) -->
+                    <div class="bg-white p-3 rounded-lg shadow-md border-l-4 border-gray-300">
+                        <p class="text-xs font-medium text-gray-500">RED Stock (Live)</p>
+                        <p id="remainingRedStock" class="text-2xl font-extrabold text-gray-800">0</p>
+                    </div>
+                    <!-- ORANGE Remaining Stock Card (Neutralized starting color) -->
+                    <div class="bg-white p-3 rounded-lg shadow-md border-l-4 border-gray-300">
+                        <p class="text-xs font-medium text-gray-500">ORANGE Stock (Live)</p>
+                        <p id="remainingOrangeStock" class="text-2xl font-extrabold text-gray-800">0</p>
+                    </div>
+                </div>
+
+                <div class="border-t border-indigo-200 pt-4 mt-4"></div>
+
+                <!-- Total Amounts Card (Revenue and COGS combined) -->
+                <div class="bg-white p-4 rounded-lg shadow-xl border-l-4 border-indigo-500">
+                    <h4 class="text-sm font-medium text-gray-500 mb-3">Total Transaction Amounts (Live)</h4>
+                    <div class="flex flex-col sm:flex-row justify-between gap-4">
+                        <!-- Total Revenue Display -->
+                        <div>
+                            <p class="text-xs font-medium text-gray-700">Revenue</p>
+                            <p id="totalRevenue" class="text-2xl font-extrabold text-indigo-600">৳0.00</p>
+                        </div>
+                        <!-- Total COGS Display -->
+                        <div>
+                            <p class="text-xs font-medium text-gray-700">Cost of Goods Sold (COGS)</p>
+                            <p id="totalCost" class="text-xl font-bold text-gray-700">৳0.00</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Profit and Profit Margin cards removed -->
+
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sale History Section (NEW) -->
+    <div class="w-full max-w-4xl bg-white shadow-xl rounded-xl p-6 md:p-10 border border-gray-100 mt-4">
+        <h2 class="text-2xl font-bold text-gray-900 border-b pb-3 mb-4">Sale History</h2>
+        
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+                        <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
+                        <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Payment (BDT)</th>
+                        <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Profit (BDT)</th>
+                    </tr>
+                </thead>
+                <tbody id="saleHistoryTableBody" class="bg-white divide-y divide-gray-200">
+                    <!-- Sale records will be inserted here by JavaScript -->
+                    <tr><td colspan="6" class="p-4 text-center text-gray-500">No sales recorded yet.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, query, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // Configuration and Initialization
+        setLogLevel('Debug');
+
+        // --- Firebase Configuration and Environment Variables ---
+        // Using environment variables provided by the Canvas environment for secure authentication
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
+        let app, db, auth, userId = 'anonymous';
+
+        try {
+            // Check if essential configuration is available
+            if (!firebaseConfig || !firebaseConfig.apiKey) {
+                throw new Error("Firebase configuration is missing or incomplete.");
+            }
+
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            
+            // Authenticate using custom token or anonymously
+            if (initialAuthToken) {
+                signInWithCustomToken(auth, initialAuthToken).catch(error => {
+                    console.error("Custom Token Sign-In Failed:", error);
+                    alertMessage("Auth Error", "Could not sign in with provided token.", "bg-red-500");
+                });
+            } else {
+                // Initiate Anonymous Sign-In for persistence if no custom token is available
+                signInAnonymously(auth).catch(error => {
+                    console.error("Anonymous Sign-In Failed:", error);
+                    alertMessage("Auth Error", "Could not sign in anonymously to database.", "bg-red-500");
+                });
+            }
+
+        } catch (error) {
+            console.error("Firebase Initialization Error:", error);
+            document.getElementById('authStatus').textContent = `Database connection failed. Please check the console.`;
+        }
+        
+        // --- Authentication and Setup ---
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userId = user.uid;
+                document.getElementById('authStatus').textContent = `User ID: ${userId} (Data is securely saved)`;
+                await loadStock();
+                listenForSales(); // Start listening for history once authenticated
+            } else {
+                // Should only happen if sign-in failed above
+                document.getElementById('authStatus').textContent = `Authentication failed. Data will not be saved.`;
+            }
+        });
+
+        // --- Firestore Utilities (Paths updated to mandatory Canvas structure) ---
+        // Private data path structure: /artifacts/{appId}/users/{userId}/{collectionName}
+        const STOCK_DOC_PATH = () => `/artifacts/${appId}/users/${userId}/stock/current`;
+        const SALES_COLLECTION_PATH = () => `/artifacts/${appId}/users/${userId}/sales`;
+
+        /**
+         * Loads stock levels and costs from Firestore and updates the input fields.
+         */
+        async function loadStock() {
+            try {
+                // Ensure userId is available before trying to load data
+                if (userId === 'anonymous') return;
+
+                const docRef = doc(db, STOCK_DOC_PATH());
+                const docSnap = await getDoc(docRef);
+
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    // Load Stock
+                    document.getElementById('redStock').value = data.red || 0;
+                    document.getElementById('orangeStock').value = data.orange || 0;
+                    
+                    // Load Costs (Now dynamic)
+                    document.getElementById('redCost').value = data.redCost || 260.00;
+                    document.getElementById('orangeCost').value = data.orangeCost || 300.00;
+
+                    calculateMetrics(); // Recalculate based on loaded data
+                    console.log("Stock and Costs loaded successfully:", data);
+                } else {
+                    // Initialize stock and costs if document doesn't exist
+                    const initialData = { 
+                        red: 100, 
+                        orange: 100,
+                        redCost: 260.00,
+                        orangeCost: 300.00,
+                        lastUpdated: new Date() 
+                    };
+                    // Use setDoc to create the initial document
+                    await setDoc(doc(db, STOCK_DOC_PATH()), initialData);
+                    document.getElementById('redStock').value = initialData.red;
+                    document.getElementById('orangeStock').value = initialData.orange;
+                    document.getElementById('redCost').value = initialData.redCost;
+                    document.getElementById('orangeCost').value = initialData.orangeCost;
+                    calculateMetrics();
+                    console.log("Stock and Costs initialized.");
+                }
+            } catch (error) {
+                console.error("Error loading stock and costs:", error);
+                alertMessage("Stock Error", "Could not load stock and costs from database.", "bg-red-500");
+            }
+        }
+        
+        /**
+         * Sets up a real-time listener for the sales history.
+         */
+        function listenForSales() {
+            // Ensure userId is available before trying to listen for data
+            if (userId === 'anonymous') return;
+            
+            const salesQuery = query(collection(db, SALES_COLLECTION_PATH())); // Sort in memory as required by guidelines
+            
+            onSnapshot(salesQuery, (snapshot) => {
+                const sales = [];
+                snapshot.forEach(doc => {
+                    sales.push({ id: doc.id, ...doc.data() });
+                });
+                
+                // Sort by timestamp in memory (newest first)
+                sales.sort((a, b) => (b.timestamp?.toDate() || 0) - (a.timestamp?.toDate() || 0));
+                
+                renderSaleHistory(sales);
+            }, (error) => {
+                console.error("Error listening to sales history:", error);
+                alertMessage("History Error", "Could not load sale history in real-time.", "bg-red-500");
+            });
+        }
+
+        /**
+         * Renders the fetched sales data into the history table.
+         * @param {Array} sales - Array of sale objects.
+         */
+        function renderSaleHistory(sales) {
+            const tableBody = document.getElementById('saleHistoryTableBody');
+            tableBody.innerHTML = ''; // Clear existing rows
+
+            if (sales.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-500">No sales recorded yet.</td></tr>';
+                return;
+            }
+
+            sales.forEach(sale => {
+                const row = tableBody.insertRow();
+                row.className = 'hover:bg-gray-50 transition duration-100';
+
+                // Format timestamp
+                const date = sale.timestamp ? sale.timestamp.toDate() : new Date();
+                const timeStr = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+                row.insertCell().textContent = timeStr;
+                row.insertCell().textContent = sale.customerName || 'N/A';
+                row.insertCell().textContent = sale.product;
+                row.insertCell().className = 'text-right font-mono';
+                row.insertCell().textContent = sale.quantity;
+                row.insertCell().className = 'text-right font-mono';
+                row.insertCell().textContent = formatCurrency(sale.payment);
+                
+                const profitCell = row.insertCell();
+                profitCell.className = `text-right font-bold font-mono ${sale.profit >= 0 ? 'text-green-600' : 'text-red-600'}`;
+                profitCell.textContent = formatCurrency(sale.profit);
+            });
+        }
+
+
+        /**
+         * Converts a numeric value to a localized currency string using BDT (Bangladeshi Taka).
+         * @param {number} value - The number to format.
+         * @returns {string} The formatted currency string (e.g., ৳100.00).
+         */
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'BDT', 
+                minimumFractionDigits: 2,
+            }).format(value);
+        }
+        
+        /**
+         * Toggles the visibility of the stock and cost input fields.
+         */
+        window.toggleStockInputs = function() {
+            const content = document.getElementById('stockInputContent');
+            const icon = document.getElementById('stockToggleIcon');
+
+            if (content.classList.contains('hidden')) {
+                content.classList.remove('hidden');
+                icon.classList.remove('rotate-0');
+                icon.classList.add('rotate-180');
+            } else {
+                content.classList.add('hidden');
+                icon.classList.remove('rotate-180');
+                icon.classList.add('rotate-0');
+            }
+        }
+
+
+        /**
+         * Calculates and displays the sales metrics based on current input values.
+         * Returns data needed for sale recording.
+         */
+        window.calculateMetrics = function() {
+            // 1. Get and clean input values
+            const sellingPriceInput = document.getElementById('sellingPrice').value;
+            const quantitySoldInput = document.getElementById('quantitySold').value;
+            
+            // Get stock inputs
+            const redStockInput = document.getElementById('redStock').value;
+            const orangeStockInput = document.getElementById('orangeStock').value;
+
+            // Get cost inputs
+            const redCostInput = document.getElementById('redCost').value;
+            const orangeCostInput = document.getElementById('orangeCost').value;
+
+            // Get selected product value
+            const selectedProduct = document.getElementById('productSelector').value; 
+
+            // Use parseFloat for currency and integer for quantity
+            const sellingPrice = parseFloat(sellingPriceInput) || 0;
+            const quantitySold = parseInt(quantitySoldInput) || 0;
+
+            // Determine cost per unit (NOW DYNAMICALLY PULLED FROM INPUTS)
+            let costPerUnit = 0;
+            if (selectedProduct === 'RED') {
+                costPerUnit = parseFloat(redCostInput) || 0;
+            } else if (selectedProduct === 'ORANGE') {
+                costPerUnit = parseFloat(orangeCostInput) || 0;
+            }
+            
+            // Update the Fixed Cost Display
+            document.getElementById('calculatedCostPerUnitDisplay').textContent = formatCurrency(costPerUnit);
+
+            // 2. Perform Financial Calculations
+            const totalRevenue = sellingPrice * quantitySold;
+            const totalCost = costPerUnit * quantitySold; 
+            const totalProfit = totalRevenue - totalCost; 
+            
+            // --- STOCK CALCULATION LOGIC ---
+            const currentRedStock = parseInt(redStockInput) || 0;
+            const currentOrangeStock = parseInt(orangeStockInput) || 0;
+            
+            let liveRedStock = currentRedStock;
+            let liveOrangeStock = currentOrangeStock;
+            let finalSelectedStock = 0; 
+
+            if (selectedProduct === 'RED') {
+                liveRedStock = currentRedStock - quantitySold;
+                finalSelectedStock = liveRedStock;
+            } else { // ORANGE
+                liveOrangeStock = currentOrangeStock - quantitySold;
+                finalSelectedStock = liveOrangeStock;
+            }
+
+
+            // 3. Update the Display (Output)
+            document.getElementById('totalRevenue').textContent = formatCurrency(totalRevenue);
+            document.getElementById('totalCost').textContent = formatCurrency(totalCost);
+            
+            // Update Remaining Stock Displays 
+            const remainingRedStockElement = document.getElementById('remainingRedStock');
+            remainingRedStockElement.textContent = liveRedStock.toLocaleString('en-US'); 
+            const remainingOrangeStockElement = document.getElementById('remainingOrangeStock');
+            remainingOrangeStockElement.textContent = liveOrangeStock.toLocaleString('en-US'); 
+            
+            // --- Visual Feedback for Stock (RED) ---
+            const redStockCard = remainingRedStockElement.closest('.bg-white');
+            // Remove all specific color classes before adding the correct one
+            redStockCard.classList.remove('border-indigo-500', 'border-yellow-500', 'border-red-500', 'border-gray-300');
+            remainingRedStockElement.classList.remove('text-indigo-600', 'text-yellow-600', 'text-red-600', 'text-gray-800');
+
+            if (liveRedStock < 0) {
+                redStockCard.classList.add('border-red-500');
+                remainingRedStockElement.classList.add('text-red-600');
+            } else if (liveRedStock <= 10 && liveRedStock >= 0) { 
+                redStockCard.classList.add('border-yellow-500');
+                remainingRedStockElement.classList.add('text-yellow-600');
+            } else {
+                // Sufficient stock uses a distinct color (Indigo)
+                redStockCard.classList.add('border-indigo-500'); 
+                remainingRedStockElement.classList.add('text-indigo-600');
+            }
+
+            // --- Visual Feedback for Stock (ORANGE) ---
+            const orangeStockCard = remainingOrangeStockElement.closest('.bg-white');
+            // Remove all specific color classes before adding the correct one
+            orangeStockCard.classList.remove('border-indigo-500', 'border-yellow-500', 'border-red-500', 'border-gray-300');
+            remainingOrangeStockElement.classList.remove('text-indigo-600', 'text-yellow-600', 'text-red-600', 'text-gray-800');
+            
+            if (liveOrangeStock < 0) {
+                orangeStockCard.classList.add('border-red-500');
+                remainingOrangeStockElement.classList.add('text-red-600');
+            } else if (liveOrangeStock <= 10 && liveOrangeStock >= 0) { 
+                orangeStockCard.classList.add('border-yellow-500');
+                remainingOrangeStockElement.classList.add('text-yellow-600');
+            } else {
+                // Sufficient stock uses a distinct color (Indigo)
+                orangeStockCard.classList.add('border-indigo-500');
+                remainingOrangeStockElement.classList.add('text-indigo-600');
+            }
+
+            
+            return { 
+                finalSelectedStock, 
+                quantitySold, 
+                selectedProduct, 
+                totalProfit, 
+                totalCost, 
+                totalRevenue, 
+                sellingPrice, 
+                costPerUnit,
+                newRedStock: liveRedStock, 
+                newOrangeStock: liveOrangeStock,
+                currentRedCost: parseFloat(redCostInput) || 0, // Return current costs for saving
+                currentOrangeCost: parseFloat(orangeCostInput) || 0 // Return current costs for saving
+            };
+        }
+
+        /**
+         * Finalizes the sale, updates the persistent stock/costs in Firestore, and records the transaction.
+         */
+        window.recordSale = async function() {
+            // Check if Firebase is initialized and user is authenticated
+            if (!db || !userId || userId === 'anonymous') {
+                alertMessage("Error", "Authentication not complete. Please check the console.", "bg-red-500");
+                return;
+            }
+
+            // Destructure the values from the live calculation
+            const { 
+                finalSelectedStock, 
+                quantitySold, 
+                selectedProduct, 
+                totalProfit, 
+                costPerUnit,
+                newRedStock,
+                newOrangeStock,
+                currentRedCost,
+                currentOrangeCost
+            } = calculateMetrics();
+            
+            const customerName = document.getElementById('customerName').value;
+            const sellingPrice = parseFloat(document.getElementById('sellingPrice').value) || 0;
+
+
+            if (quantitySold <= 0) {
+                alertMessage("Error", "Quantity sold must be greater than zero to record a sale.", "bg-red-500");
+                return;
+            }
+
+            // Note: We allow negative stock to be recorded for tracking, but show a warning
+            // if (finalSelectedStock < 0) {
+            //     alertMessage("Warning", `Stock for ${selectedProduct} will go negative. Recording sale anyway.`, "bg-yellow-500");
+            // }
+            
+            // 1. Record the Sale Transaction
+            const saleData = {
+                customerName: customerName,
+                product: selectedProduct,
+                quantity: quantitySold,
+                payment: sellingPrice,
+                cost: costPerUnit,
+                profit: totalProfit,
+                timestamp: new Date(),
+            };
+
+            try {
+                await addDoc(collection(db, SALES_COLLECTION_PATH()), saleData);
+                
+                // 2. Update the Stock and Costs in Firestore 
+                await setDoc(doc(db, STOCK_DOC_PATH()), {
+                    red: newRedStock,
+                    orange: newOrangeStock,
+                    redCost: currentRedCost, // Save current cost
+                    orangeCost: currentOrangeCost, // Save current cost
+                    lastUpdated: new Date()
+                });
+                
+                // 3. Clear transaction fields
+                document.getElementById('customerName').value = '';
+                document.getElementById('quantitySold').value = '';
+                document.getElementById('sellingPrice').value = '';
+                
+                // Re-run metrics to zero out the display based on cleared inputs
+                calculateMetrics(); 
+
+                alertMessage("Sale Recorded!", `Successfully recorded sale of ${quantitySold} unit(s) of ${selectedProduct}. Stock and Cost Settings updated.`, "bg-green-600");
+                
+            } catch (error) {
+                console.error("Error recording sale or updating stock/costs:", error);
+                alertMessage("Database Error", "Failed to save sale, stock, or cost settings. Check console.", "bg-red-500");
+            }
+        }
+        
+        /**
+         * Displays a custom, non-blocking notification message.
+         */
+        function alertMessage(title, message, colorClass) {
+            let messageBox = document.getElementById('messageBox');
+            
+            if (!messageBox) {
+                messageBox = document.createElement('div');
+                messageBox.id = 'messageBox';
+                messageBox.className = 'fixed top-5 right-5 z-50 p-4 rounded-lg shadow-xl transition-all duration-300 transform opacity-0 translate-y-[-20px] max-w-xs text-white';
+                messageBox.innerHTML = '<h4 id="messageTitle" class="font-bold text-lg mb-1"></h4><p id="messageText" class="text-sm"></p>';
+                document.body.appendChild(messageBox);
+            }
+            
+            const messageTitle = document.getElementById('messageTitle');
+            const messageText = document.getElementById('messageText');
+            
+            // Reset and apply new class
+            messageBox.className = messageBox.className.replace(/bg-[\w-]+/g, '').replace('opacity-0 translate-y-[-20px]', 'opacity-100 translate-y-0');
+            messageBox.classList.add(colorClass);
+
+            messageTitle.textContent = title;
+            messageText.textContent = message;
+            
+            // Hide after 3 seconds
+            setTimeout(() => {
+                messageBox.classList.remove('opacity-100', 'translate-y-0');
+                messageBox.classList.add('opacity-0', 'translate-y-[-20px]');
+            }, 3000);
+        }
+
+        // Call the function once when the page loads to display initial values
+        window.onload = function() {
+            calculateMetrics();
+        };
+
+    </script>
+</body>
+</html>
